@@ -1,8 +1,6 @@
 package main;
 
 import (
-  "encoding/binary"
-  "errors"
   "flag"
   "io/ioutil"
   "net/http"
@@ -47,38 +45,11 @@ func main() {
 	log.Fatal(http.ListenAndServe(listen, router))
 }
 
-// Marshalling keys and assorted helper functions
-func validObj(obj string) bool {
-	return obj == "bite" || obj == "user"
-}
-
 // TODO: ensure security of regexp
 var validConversationRegexp = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
 
 func validConversation(conversation string) bool {
 	return validConversationRegexp.MatchString(conversation)
-}
-
-const conversationSeprator = '@'
-const objSeprator = '+'
-
-func MarshalKey(obj, conversation string, start uint64) ([]byte, error) {
-	prefixBytes, err := MarshalKeyPrefix(obj, conversation)
-	if err != nil {
-		return nil, err
-	}
-
-	startBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(startBytes, start)
-
-	return append(prefixBytes, startBytes...), nil
-}
-
-func MarshalKeyPrefix(obj, conversation string) ([]byte, error) {
-	if !validObj(obj) || !validConversation(conversation) {
-		return nil, errors.New("main: FormatKey: bad obj or conversation")
-	}
-	return []byte(obj + string(objSeprator) + conversation + string(conversationSeprator)), nil
 }
 
 func ParseStartString(start string) (uint64, error) {
@@ -92,8 +63,9 @@ func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	key, err := MarshalKey("bite", p.ByName("key"), start)
-	if err != nil {
+
+	key := p.ByName("key")
+	if !validConversation(key) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -128,8 +100,8 @@ func PutBiteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		return
 	}
 
-	key, err := MarshalKey("user", p.ByName("key"), start)
-	if err != nil {
+  key := p.ByName("key")
+	if !validConversation(key) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
