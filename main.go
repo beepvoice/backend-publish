@@ -11,20 +11,27 @@ import (
   "github.com/golang/protobuf/proto"
   "github.com/julienschmidt/httprouter"
   "github.com/nats-io/go-nats"
+  "github.com/dgrijalva/jwt-go"
+  "github.com/aiden0z/go-jwt-middleware"
 )
 
 const MaxBiteSize = 1024 * 1024 * 10
 
 var listen string
 var natsHost string
+var secret []byte
 
 var nats_conn *nats.Conn
 
 func main() {
   // Parse flags
+  var s string
 	flag.StringVar(&listen, "listen", ":8080", "host and port to listen on")
   flag.StringVar(&natsHost, "nats", "nats://localhost:4222", "host and port of NATS")
+  flag.StringVar(&s, "secret", "secret", "JWT secret")
   flag.Parse()
+
+  secret = []byte(s)
 
   //NATS
   n, err := nats.Connect(natsHost)
@@ -34,6 +41,14 @@ func main() {
   }
   nats_conn = n
 
+  // JWT Middleware
+  jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options {
+    ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+      return secret, nil
+    },
+    SigningMethod: jwt.SigningMethodHS256,
+  })
+
   // Routes
 	router := httprouter.New()
 
@@ -42,7 +57,7 @@ func main() {
 
   // Start server
   log.Printf("starting server on %s", listen)
-	log.Fatal(http.ListenAndServe(listen, router))
+	log.Fatal(http.ListenAndServe(listen, jwtMiddleware.Handler(router)))
 }
 
 // TODO: ensure security of regexp
@@ -58,6 +73,13 @@ func ParseStartString(start string) (uint64, error) {
 
 // Route handlers
 func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+  user := r.Context().Value("user")
+  userClaims := user.(*jwt.Token).Claims.(jwt.MapClaims)
+  client := Client {
+    Key: userClaims["id"].(string),
+    Client: userClaims["client"].(string),
+  }
+
   start, err := ParseStartString(p.ByName("start"))
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -81,6 +103,7 @@ func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
     Start: start,
     Key: key,
     Data: body,
+    Client: &client,
   }
   out, err := proto.Marshal(&b)
   if err != nil {
@@ -94,6 +117,13 @@ func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func PutBiteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+  user := r.Context().Value("user")
+  userClaims := user.(*jwt.Token).Claims.(jwt.MapClaims)
+  client := Client {
+    Key: userClaims["id"].(string),
+    Client: userClaims["client"].(string),
+  }
+
   start, err := ParseStartString(p.ByName("start"))
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -117,6 +147,7 @@ func PutBiteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
     Start: start,
     Key: key,
     Data: body,
+    Client: &client,
   }
   out, err := proto.Marshal(&b)
   if err != nil {

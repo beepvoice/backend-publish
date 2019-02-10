@@ -1,6 +1,6 @@
 # backend-publish
 
-Beep backend accepts PUT requests and publishes a protobuf-ed version to a [NATS](htts://nats.io) queue, like some sort of weird HTTP/NATS converter. Needless to say, relies on a NATS instance being up.
+Beep backend accepts PUT requests and publishes a protobuf-ed version to a [NATS](htts://nats.io) queue, like some sort of weird HTTP/NATS converter. Also handles authentication of said HTTP requests. Needless to say, relies on a NATS instance being up.
 
 ## Quickstart
 
@@ -18,6 +18,8 @@ Flags are supplied to the compiled go program in the form ```-flag=stuff```.
 | nats | URL of NATS | nats://localhost:4222 |
 
 ## API
+
+All requests require an ```Authorization: Bearer <token>``` header, with token being obtained from ```backend-login```.
 
 ### Put Bite
 
