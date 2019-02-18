@@ -8,14 +8,15 @@ Beep backend accepts PUT requests and publishes a protobuf-ed version to a [NATS
 go build && ./backend-publish
 ```
 
-## Flags
+## Environment Variables
 
-Flags are supplied to the compiled go program in the form ```-flag=stuff```.
+Supply environment variables by either exporting them or editing ```.env```.
 
-| Flag | Description | Default |
+| ENV | Description | Default |
 | ---- | ----------- | ------- |
-| listen | Port number to listen on | 8080 |
-| nats | URL of NATS | nats://localhost:4222 |
+| LISTEN | Host and port number to listen on | :8080 |
+| NATS | Host and port of nats | nats://localhost:4222 |
+| SECRET | JWT secret | secret |
 
 ## API
 

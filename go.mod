@@ -7,6 +7,7 @@ require (
 	github.com/golang/protobuf v1.2.1-0.20190205222052-c823c79ea157
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/mux v1.7.0 // indirect
+	github.com/joho/godotenv v1.3.0
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/nats-io/gnatsd v1.4.1 // indirect

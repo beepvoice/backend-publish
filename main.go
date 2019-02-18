@@ -1,13 +1,14 @@
 package main;
 
 import (
-  "flag"
   "io/ioutil"
   "net/http"
   "log"
+  "os"
   "regexp"
   "strconv"
 
+  "github.com/joho/godotenv"
   "github.com/golang/protobuf/proto"
   "github.com/julienschmidt/httprouter"
   "github.com/nats-io/go-nats"
@@ -24,12 +25,14 @@ var secret []byte
 var nats_conn *nats.Conn
 
 func main() {
-  // Parse flags
-  var s string
-	flag.StringVar(&listen, "listen", ":8080", "host and port to listen on")
-  flag.StringVar(&natsHost, "nats", "nats://localhost:4222", "host and port of NATS")
-  flag.StringVar(&s, "secret", "secret", "JWT secret")
-  flag.Parse()
+  // Load .env
+  err := godotenv.Load()
+  if err != nil {
+    log.Fatal("Error loading .env file")
+  }
+  listen = os.Getenv("LISTEN")
+  natsHost = os.Getenv("NATS")
+  s := os.Getenv("SECRET")
 
   secret = []byte(s)
 
