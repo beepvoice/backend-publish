@@ -2,6 +2,8 @@
 
 Beep backend accepts PUT requests and publishes a protobuf-ed version to a [NATS](htts://nats.io) queue, like some sort of weird HTTP/NATS converter. Also handles authentication of said HTTP requests. Needless to say, relies on a NATS instance being up.
 
+**To run this service securely means to run it behind traefik forwarding auth to `backend-auth`**
+
 ## Quickstart
 
 ```
@@ -20,7 +22,14 @@ Supply environment variables by either exporting them or editing ```.env```.
 
 ## API
 
-All requests require an ```Authorization: Bearer <token>``` header, with token being obtained from ```backend-login```.
+All requests need to be passed through `traefik` calling `backend-auth` as Forward Authentication. Otherwise, populate `X-User-Claim` with:
+
+```json
+{
+  "userid": "<userid>",
+  "clientid": "<clientid"
+}
+```
 
 ### Put Bite
 
@@ -49,7 +58,7 @@ Empty body.
 
 | Code | Description |
 | ---- | ----------- |
-| 400 | start is not an uint/key is not an alphanumeric string/data could not be read from the body |
+| 400 | start is not an uint/key is not an alphanumeric string/data could not be read from the body/bad user claim |
 | 500 | Error serialising data into a protocol buffer. |
 
 ---
@@ -81,5 +90,5 @@ Empty body.
 
 | Code | Description |
 | ---- | ----------- |
-| 400 | start is not an uint/key is not an alphanumeric string/data could not be read from the body |
+| 400 | start is not an uint/key is not an alphanumeric string/data could not be read from the body/bad user claim |
 | 500 | Error serialising data into a protocol buffer. |

@@ -1,6 +1,8 @@
 package main;
 
 import (
+  "context"
+  "encoding/json"
   "io/ioutil"
   "net/http"
   "log"
@@ -12,8 +14,6 @@ import (
   "github.com/golang/protobuf/proto"
   "github.com/julienschmidt/httprouter"
   "github.com/nats-io/go-nats"
-  "github.com/dgrijalva/jwt-go"
-  "github.com/aiden0z/go-jwt-middleware"
 )
 
 const MaxBiteSize = 1024 * 1024 * 10
@@ -44,23 +44,40 @@ func main() {
   }
   nats_conn = n
 
-  // JWT Middleware
-  jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options {
-    ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-      return secret, nil
-    },
-    SigningMethod: jwt.SigningMethodHS256,
-  })
-
   // Routes
 	router := httprouter.New()
 
-  router.PUT("/conversation/:key/start/:start", PutBite) // bites
-  router.PUT("/conversation/:key/start/:start/user", PutBiteUser) // bite_users
+  router.PUT("/conversation/:key/start/:start", AuthMiddleware(PutBite)) // bites
+  router.PUT("/conversation/:key/start/:start/user", AuthMiddleware(PutBiteUser)) // bite_users
 
   // Start server
   log.Printf("starting server on %s", listen)
-	log.Fatal(http.ListenAndServe(listen, jwtMiddleware.Handler(router)))
+	log.Fatal(http.ListenAndServe(listen, router))
+}
+
+type RawClient struct {
+  UserId string `json:"userid"`
+  ClientId string `json:"clientid"`
+}
+func AuthMiddleware(next httprouter.Handle) httprouter.Handle {
+  return func (w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+    ua := r.Header.Get("X-User-Claim")
+    if ua == "" {
+      http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+  		return
+    }
+
+    var client RawClient
+    err := json.Unmarshal([]byte(ua), &client)
+
+    if err != nil {
+      http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+  		return
+    }
+
+    context := context.WithValue(r.Context(), "user", client)
+    next(w, r.WithContext(context), p)
+  }
 }
 
 // TODO: ensure security of regexp
@@ -76,11 +93,10 @@ func ParseStartString(start string) (uint64, error) {
 
 // Route handlers
 func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-  user := r.Context().Value("user")
-  userClaims := user.(*jwt.Token).Claims.(jwt.MapClaims)
-  client := Client {
-    Key: userClaims["id"].(string),
-    Client: userClaims["client"].(string),
+  client := r.Context().Value("user").(RawClient)
+  c := Client {
+    Key: client.UserId,
+    Client: client.ClientId,
   }
 
   start, err := ParseStartString(p.ByName("start"))
@@ -106,7 +122,7 @@ func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
     Start: start,
     Key: key,
     Data: body,
-    Client: &client,
+    Client: &c,
   }
   out, err := proto.Marshal(&b)
   if err != nil {
@@ -120,11 +136,10 @@ func PutBite(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func PutBiteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-  user := r.Context().Value("user")
-  userClaims := user.(*jwt.Token).Claims.(jwt.MapClaims)
-  client := Client {
-    Key: userClaims["id"].(string),
-    Client: userClaims["client"].(string),
+  client := r.Context().Value("user").(RawClient)
+  c := Client {
+    Key: client.UserId,
+    Client: client.ClientId,
   }
 
   start, err := ParseStartString(p.ByName("start"))
@@ -150,7 +165,7 @@ func PutBiteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
     Start: start,
     Key: key,
     Data: body,
-    Client: &client,
+    Client: &c,
   }
   out, err := proto.Marshal(&b)
   if err != nil {
