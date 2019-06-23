@@ -10,6 +10,8 @@ import (
   "regexp"
   "strconv"
 
+  . "publish/backend-protobuf/go"
+
   "github.com/joho/godotenv"
   "github.com/golang/protobuf/proto"
   "github.com/julienschmidt/httprouter"
